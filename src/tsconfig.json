@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "target": "es2017",
+        "module": "none",
+        "skipLibCheck": true,
+        "outDir": "../dist",
+        "strict": true,
+        "noUnusedLocals": true,
+        "noFallthroughCasesInSwitch": true
+    },
+    "include": [".", "notifications"]
+}

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+  <!-- The CSS package above applies Google styling to buttons and other elements. -->
+  <style>
+    .branding-below {
+      bottom: 54px;
+      top: 0;
+    }
+    .branding-text {
+      left: 7px;
+      position: relative;
+      top: 3px;
+    }
+    .logo {
+      vertical-align: middle;
+    }
+    .width-100 {
+      width: 100%;
+      box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+    }
+    label {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+<div class="sidebar branding-below">
+  <form method="dialog" target="_self">
+    <h1>Turnstile Settings</h1>
+    <div class="block">
+      <input type="checkbox" id="enable-turnstile">
+      <label for="enable-turnstile">Enable Turnstile</label>
+    </div>
+    <div class="block form-group" id="turnstile-options">
+      <label for="site-secret">
+        Site secret
+      </label>
+      <input type="text" class="width-100" id="site-secret">
+      <input type="checkbox" id="mark-as-token-sheet">
+      <label for="mark-as-token-sheet">Mark as Token Sheet</label>
+    </div>
+    <br>
+    <h1>Notification Settings</h1>
+
+    <p>Notifications are sent only for turnstile validated responses.</p>
+    <div class="block">
+      <input type="checkbox" id="enable-notifications">
+      <label for="enable-notifications">Enable Notifications</label>
+    </div>
+    <div class="block form-group" id="notification-options">
+      <label for="webhook-urls">
+        Webhook URLs
+      </label>
+      <input type="text" class="width-100" id="webhook-urls">
+      <label for="notification-template">
+        Notification Template
+      </label>
+      <select id="notification-template"></select>
+    </div>
+
+    <div class="block" id="button-bar">
+      <button class="action" id="save-settings">Save</button>
+    </div>
+  </form>
+</div>
+
+<div class="sidebar bottom">
+  <img alt="Add-on logo" class="logo" width="25"
+       src="https://lh3.googleusercontent.com/-nPgH1PIWWXY/ZK9MQbbYjzI/AAAAAAAAAAM/NbHbkEFaUX8CoFrXiHR0fbR6WrJ1LkxRgCNcBGAsYHQ/s400/Turnstile%2Bfor%2BForms%2B128.png">
+  <span class="gray branding-text">Turnstile for Forms</span>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">
+</script>
+<script>
+  const buttonBar = $('#button-bar');
+  const templateSelect = $('#notification-template');
+
+  /**
+   * On document load, assign required handlers to each element,
+   * and attempt to load any saved settings.
+   */
+  (function() {
+    $('#save-settings').on('click', saveSettingsToServer);
+    $('#enable-turnstile').on('click', toggleEnableTurnstile);
+    $('#enable-notifications').on('click', toggleEnableNotifications);
+    if (typeof google !== 'undefined') {
+      google.script.run
+              .withSuccessHandler(loadSettings)
+              .withFailureHandler(showStatus)
+              .withUserObject(buttonBar)
+              .getSettings();
+
+      google.script.run
+              .withSuccessHandler(loadSiteSecret)
+              .withFailureHandler(showStatus)
+              .withUserObject(buttonBar)
+              .getSiteSecret();
+    } else {
+      console.log('Dev environment detected, skipped loading settings');
+    }
+  })();
+
+  /**
+   * Callback function that populates the notification options using
+   * previously saved values.
+   *
+   * @param {Object} settings The saved settings from the client.
+   */
+  function loadSettings(settings) {
+    const enableTurnstileCheckbox = $('#enable-turnstile');
+    const markAsTokenSheetCheckbox = $('#mark-as-token-sheet');
+    const enableNotificationsCheckbox = $('#enable-notifications');
+
+    // Turnstile
+    enableTurnstileCheckbox.prop('checked', settings.enableTurnstile === 'true');
+    markAsTokenSheetCheckbox.prop('checked', settings.isTokenSheet === 'true');
+
+    if (settings.enableTurnstile === 'true') {
+      $('#turnstile-options').show();
+
+      if (settings.isTokenSheet !== 'true') {
+        // Notifications
+        for (const [templateDisplayName, templateName] of Object.entries(settings.notificationTemplates)) {
+          templateSelect.append(new Option(templateDisplayName, templateName));
+        }
+
+        if (settings.enableNotifications === 'true') {
+          enableNotificationsCheckbox.prop('checked', true);
+          $('#webhook-urls').val(settings.webhookUrls);
+          $('#notification-options').show();
+        }
+      } else {
+        $('#notification-options').hide();
+      }
+    } else {
+      $('#turnstile-options').hide();
+      $('#notification-options').hide();
+    }
+  }
+
+  function loadSiteSecret(siteSecret) {
+    $('#site-secret').val(siteSecret);
+  }
+
+  /**
+   * Toggles the visibility of the form creator notification options.
+   */
+  function toggleEnableTurnstile() {
+    $('#status').remove();
+    if ($('#enable-turnstile').is(':checked')) {
+      $('#turnstile-options').show();
+    } else {
+      $('#turnstile-options').hide();
+    }
+  }
+
+  /**
+   * Toggles the visibility of the form creator notification options.
+   */
+  function toggleEnableNotifications() {
+    $('#status').remove();
+    if ($('#enable-notifications').is(':checked')) {
+      $('#notification-options').show();
+    } else {
+      $('#notification-options').hide();
+    }
+  }
+
+  /**
+   * Collects the options specified in the add-on sidebar and sends them to
+   * be saved as Properties on the server.
+   */
+  function saveSettingsToServer() {
+    buttonBar.prop('disabled', true);
+    $('#status').remove();
+    let enableTurnstile = $('#enable-turnstile').is(':checked');
+    let enableNotifications = $('#enable-notifications').is(':checked');
+    let settings = {
+      'enableTurnstile': enableTurnstile,
+      'enableNotifications': enableNotifications
+    };
+
+    // Only save turnstile options if notify is turned on
+    if (enableTurnstile) {
+      settings.siteSecret = $('#site-secret').val().trim();
+      settings.isTokenSheet = $('#mark-as-token-sheet').is(':checked');
+
+      // Abort save if any options are missing.
+      if (!settings.siteSecret) {
+        showStatus('Enter a site secret', buttonBar);
+        this.disabled = false;
+        return;
+      }
+    }
+
+    // Save notification settings only if notifications are enabled
+    if (enableNotifications) {
+      settings.webhookUrls = $('#webhook-urls').val().trim();
+      settings.notificationTemplate = $('#notification-template option:selected').val();
+
+      // Abort save if any options are missing.
+      if (!settings.webhookUrls) {
+        showStatus('Enter at least one webhook URL', buttonBar);
+        buttonBar.prop('disabled', false);
+        return;
+      }
+    }
+
+    // Save the settings on the server
+    if (typeof google !== 'undefined') {
+      google.script.run
+              .withSuccessHandler(
+                      function (msg) {
+                        showStatus('Saved settings', buttonBar);
+                        buttonBar.prop('disabled', false);
+                      })
+              .withFailureHandler(
+                      function (msg) {
+                        showStatus(msg, buttonBar);
+                        buttonBar.prop('disabled', false);
+                      })
+              .withUserObject(buttonBar)
+              .saveSettings(settings);
+    }
+  }
+
+  /**
+   * Inserts a div that contains an status message after a given element.
+   *
+   * @param {String} msg The status message to display.
+   * @param {Object} element The element after which to display the Status.
+   */
+  function showStatus(msg, element) {
+    const div = $('<div>')
+            .attr('id', 'status')
+            .attr('class', 'error')
+            .text(msg);
+    $(element).after(div);
+  }
+</script>
+</body>
+</html>
