@@ -45,22 +45,28 @@
       <label for="mark-as-token-sheet">Mark as Token Sheet</label>
     </div>
     <br>
-    <h1>Notification Settings</h1>
-
-    <p>Notifications are sent only for turnstile validated responses.</p>
-    <div class="block">
-      <input type="checkbox" id="enable-notifications">
-      <label for="enable-notifications">Enable Notifications</label>
-    </div>
     <div class="block form-group" id="notification-options">
+      <h1>Notification Settings</h1>
+
+      <p>Notifications are sent only for turnstile validated responses.</p>
+      <div class="block">
+        <input type="checkbox" id="enable-notifications">
+        <label for="enable-notifications">Enable Notifications</label>
+      </div>
       <label for="webhook-urls">
         Webhook URLs
+        Enter each webhook on a separate line.
       </label>
-      <input type="text" class="width-100" id="webhook-urls">
+      <textarea id="webhook-urls" name="Webhook URLs" rows="5" class="width-100"></textarea>
       <label for="notification-template">
         Notification Template
       </label>
       <select id="notification-template"></select>
+      <label for="response-order">
+        Response Order
+        Enter each question name on a separate line.
+      </label>
+      <textarea id="response-order" name="Response Order" rows="5" class="width-100"></textarea>
     </div>
 
     <div class="block" id="button-bar">
@@ -126,14 +132,21 @@
 
       if (settings.isTokenSheet !== 'true') {
         // Notifications
-        for (const [templateDisplayName, templateName] of Object.entries(settings.notificationTemplates)) {
-          templateSelect.append(new Option(templateDisplayName, templateName));
+        if (settings.notificationTemplates) {
+          for (const [templateDisplayName, templateName] of Object.entries(settings.notificationTemplates)) {
+            templateSelect.append(new Option(templateDisplayName, templateName));
+          }
+        } else {
+          showStatus('Error: Notification templates undefined', buttonBar);
         }
 
         if (settings.enableNotifications === 'true') {
           enableNotificationsCheckbox.prop('checked', true);
           $('#webhook-urls').val(settings.webhookUrls);
+          $('#response-order').val(settings.responseOrder);
           $('#notification-options').show();
+        } else {
+          $('#notification-options').hide();
         }
       } else {
         $('#notification-options').hide();
@@ -186,7 +199,7 @@
       'enableNotifications': enableNotifications
     };
 
-    // Only save turnstile options if notify is turned on
+    // Only save turnstile options if turnstile is turned on
     if (enableTurnstile) {
       settings.siteSecret = $('#site-secret').val().trim();
       settings.isTokenSheet = $('#mark-as-token-sheet').is(':checked');
@@ -202,11 +215,24 @@
     // Save notification settings only if notifications are enabled
     if (enableNotifications) {
       settings.webhookUrls = $('#webhook-urls').val().trim();
+      settings.responseOrder = $('#response-order').val().trim();
       settings.notificationTemplate = $('#notification-template option:selected').val();
 
       // Abort save if any options are missing.
       if (!settings.webhookUrls) {
         showStatus('Enter at least one webhook URL', buttonBar);
+        buttonBar.prop('disabled', false);
+        return;
+      }
+
+      if (!settings.responseOrder) {
+        showStatus('Enter a response order', buttonBar);
+        buttonBar.prop('disabled', false);
+        return;
+      }
+
+      if (!settings.notificationTemplate) {
+        showStatus('Select a notification template', buttonBar);
         buttonBar.prop('disabled', false);
         return;
       }
@@ -227,6 +253,8 @@
                       })
               .withUserObject(buttonBar)
               .saveSettings(settings);
+    } else {
+      console.log(JSON.stringify(settings));
     }
   }
 

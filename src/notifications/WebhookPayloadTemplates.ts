@@ -1,7 +1,9 @@
+const NOTIFICATION_TEMPLATES = {'Report Form': 'reportFormNotification'};
+
 let webhookPayloadTemplates = new Map<string, string>();
 
 // Templates
-webhookPayloadTemplates.set('reportFormNotification', '{"username": "Notifications for Forms","embeds": [{"title": "${formTitle}","fields": [${questionResponses}],"footer": {"text": "${sessionId}"},"timestamp": "${timestamp}"}]}');
+webhookPayloadTemplates.set('reportFormNotification', `{"username": "${ADDON_TITLE}","embeds": [{"title": "$\{formTitle}","fields": [$\{questionResponses}],"footer": {"text": "$\{sessionId}"},"timestamp": "$\{timestamp}"}]}`);
 
 /**
  * Replaces placeholders in a string template with the values of an object that has keys matching the placeholder names in the substitution object

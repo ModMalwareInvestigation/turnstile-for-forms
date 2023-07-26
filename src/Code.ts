@@ -1,9 +1,10 @@
+// noinspection JSUnusedLocalSymbols
+
 /**
  * A global constant String holding the title of the add-on. This is
  * used to identify the add-on in the notification emails.
  */
 const ADDON_TITLE = 'Turnstile for Forms';
-const NOTIFICATION_TEMPLATES = {'Report Form': 'reportFormNotification'};
 
 /**
  * Adds a custom menu to the active form to show the add-on sidebar.
@@ -71,33 +72,34 @@ function saveSettings(settings: any) {
         'siteSecret': settings.siteSecret
     });
 
-    if (settings.isTokenSheet) {
-        if (SpreadsheetApp.getActive().getFormUrl() !== null) {
-            PropertiesService.getUserProperties().setProperty('tokenFormUrl', SpreadsheetApp.getActive().getFormUrl() as string);
-            console.log(SpreadsheetApp.getActive().getFormUrl());
-        }
-        else {
-            throw new Error('Token sheet is not associated with a token form');
-        }
-    }
-    else {
-        if (settings.enableTurnstile) {
-            if (settings.enableNotifications) {
-                PropertiesService.getDocumentProperties().setProperty('enableNotifications', settings.enableNotifications);
-
-                if (!Object.values(NOTIFICATION_TEMPLATES).includes(settings.notificationTemplate)) {
-                    throw new Error(`Unknown notification template ${settings.notificationTemplate}`);
-                }
-
-                PropertiesService.getDocumentProperties().setProperties({
-                    'webhookUrls': settings.webhookUrls,
-                    'formTitle': formTitle,
-                    'notificationTemplate': settings.notificationTemplate
-                });
+    if (settings.enableTurnstile) {
+        if (settings.isTokenSheet) {
+            if (SpreadsheetApp.getActive().getFormUrl() !== null) {
+                PropertiesService.getUserProperties().setProperty('tokenFormUrl', SpreadsheetApp.getActive().getFormUrl() as string);
+            }
+            else {
+                throw new Error('Token sheet is not associated with a token form');
             }
         }
         else {
-            PropertiesService.getDocumentProperties().setProperty('enableNotifications', 'false');
+            if (SpreadsheetApp.getActive().getFormUrl() !== null) {
+                PropertiesService.getDocumentProperties().setProperty('enableNotifications', settings.enableNotifications);
+
+                if (settings.enableNotifications) {
+                    if (!Object.values(NOTIFICATION_TEMPLATES).includes(settings.notificationTemplate)) {
+                        throw new Error(`Unknown notification template ${settings.notificationTemplate}`);
+                    }
+
+                    PropertiesService.getDocumentProperties().setProperties({
+                        'webhookUrls': settings.webhookUrls,
+                        'formTitle': formTitle,
+                        'notificationTemplate': settings.notificationTemplate,
+                        'responseOrder': settings.responseOrder
+                    });
+                }
+            } else {
+                throw new Error('Response sheet is not associated with a form')
+            }
         }
     }
 
@@ -257,7 +259,13 @@ function respondToFormSubmit(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
                         } else {
                             console.info(`Response at ${responseStartCoordinate} passed verification`);
                             copyResponseToFilteredResponseSheet(e.range);
-                            sendNotification(e);
+
+                            if (settings.getProperty('enableNotifications') === 'true') {
+
+                                console.info('Notifications enabled, sending...');
+                                sendNotification(e);
+                                console.info('Notifications sent');
+                            }
                         }
                     } else {
                         e.range.setBackground(errorBackgroundColor);
@@ -287,44 +295,6 @@ function respondToFormSubmit(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
         }
     }
 }
-
-function sendNotification(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
-    const webhooks = PropertiesService.getDocumentProperties().getProperty('webhookUrls')!.split(',');
-    const templateName = PropertiesService.getDocumentProperties().getProperty('notificationTemplate');
-    let substitution = {
-        formTitle: PropertiesService.getDocumentProperties().getProperty('formTitle'),
-        sessionId: e.namedValues['Secret'][0],
-        questionResponses: '',
-        // Hardcoded time zone isn't ideal but time zone conversion requires libraries which is less ideal.
-        // Get form TZ: SpreadsheetApp.getActive().getSpreadsheetTimeZone()
-        timestamp: new Date(e.namedValues['Timestamp'][0] + ' EDT').toISOString()
-    }
-
-    delete e.namedValues['Secret'];
-    delete e.namedValues['Timestamp'];
-
-    for (const [key, value] of Object.entries(e.namedValues)) {
-        substitution.questionResponses = `${substitution.questionResponses}{"name": "${key}", "value": "${value[0]}"},`;
-    }
-
-    // Remove the trailing comma
-    if (substitution.questionResponses.length > 0) {
-        substitution.questionResponses = substitution.questionResponses.substring(0, substitution.questionResponses.length - 1);
-    } else {
-        // Add a default message
-        substitution.questionResponses = '{"name": "No Answers Provided", "value": "User did not fill in any questions"}';
-    }
-
-    for (const webhook of webhooks) {
-        if (webhook.indexOf('https://discord.com/api/webhooks') === 0) {
-            //@ts-ignore
-            postToWebhook(webhook, createWebhookPayload(templateName, substitution));
-        } else {
-            throw new Error(`Failed to post to url '${webhook}'. URL is not a valid Discord webhook.`);
-        }
-    }
-}
-
 
 /**
  * Called when the user needs to reauthorize. Sends the user of the

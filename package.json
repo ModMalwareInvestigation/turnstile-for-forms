@@ -15,6 +15,6 @@
 		"build": "vite build && tsc -b src",
 		"preview": "vite preview",
 		"clasp:push": "clasp push",
-		"clasp:deploy": "clasp deploy"
+		"clasp:deploy": "pnpm build && clasp push && clasp deploy"
 	}
 }
