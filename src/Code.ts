@@ -6,6 +6,14 @@
  * used to identify the add-on in the notification emails.
  */
 const ADDON_TITLE = 'Turnstile for Forms';
+/**
+ * The question name for the Session ID field of the user and token forms
+ */
+const SESSION_ID_FIELD_NAME = 'Session ID';
+/**
+ * The question name for the Token field of the token form
+ */
+const TOKEN_FIELD_NAME = 'Token';
 
 /**
  * Adds a custom menu to the active form to show the add-on sidebar.
@@ -58,7 +66,7 @@ function showAbout() {
 
 /**
  * Save sidebar settings to this form's Properties, and update the onFormSubmit
- * trigger as needed.
+ * trigger as needed. This is called from sidebar.html.
  *
  * @param {Object} settings An Object containing key-value
  *      pairs to store.
@@ -110,7 +118,7 @@ function saveSettings(settings: Settings) {
 
 /**
  * Queries the User Properties and adds additional data required to populate
- * the sidebar UI elements.
+ * the sidebar UI elements. This is called from sidebar.html.
  *
  * @return {Object} A collection of Property values and
  *     related data used to fill the configuration sidebar.
@@ -250,15 +258,16 @@ function respondToFormSubmit(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
         // Make sure this isn't the token form
         if (settings.getProperty('isTokenSheet') !== 'true') {
             if (settings.getProperty('enableTurnstile') === 'true') {
-                const uuid = String(e.namedValues['Secret']);
+                const sessionId = String(e.namedValues[SESSION_ID_FIELD_NAME]);
                 const responseStartCoordinate = e.range.getCell(1, 1).getA1Notation();
+                // Light red
                 const errorBackgroundColor = '#f4cccc';
 
-                if (typeof uuid !== 'undefined') {
-                    const token = getLatestToken(tokenForm, uuid);
+                if (typeof sessionId !== 'undefined') {
+                    const token = getLatestToken(tokenForm, sessionId);
 
                     if (token) {
-                        if (!verifyTurnstileToken(uuid, token)) {
+                        if (!verifyTurnstileToken(sessionId, token)) {
                             e.range.setBackground(errorBackgroundColor);
                             console.warn(`Response at ${responseStartCoordinate} failed verification`);
                         } else {
@@ -274,16 +283,16 @@ function respondToFormSubmit(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
                         }
                     } else {
                         e.range.setBackground(errorBackgroundColor);
-                        console.warn(`Failed to find token for response with UUID "${uuid}"`)
+                        console.warn(`Failed to find token for response with session ID "${sessionId}"`)
                     }
                 } else {
                     e.range.setBackground(errorBackgroundColor);
-                    throw new Error(`Response at ${responseStartCoordinate} didn't include a UUID.`);
+                    throw new Error(`Response at ${responseStartCoordinate} didn't include a session ID.`);
                 }
             }
         } else {
-            if (e.namedValues['UUID']) {
-                console.log(`Received token for request ${e.namedValues['UUID']}`);
+            if (e.namedValues[SESSION_ID_FIELD_NAME]) {
+                console.log(`Received token for request ${e.namedValues[SESSION_ID_FIELD_NAME]}`);
 
                 if (PropertiesService.getUserProperties().getProperty('clearTokenFormOnNextRun') === 'true') {
                     console.info('Running scheduled token cleanup...');
@@ -295,7 +304,7 @@ function respondToFormSubmit(e: GoogleAppsScript.Events.SheetsOnFormSubmit) {
                     PropertiesService.getUserProperties().setProperty('clearTokenFormOnNextRun', 'false');
                 }
             } else {
-                throw new Error('Token form response has no UUID');
+                throw new Error('Token form response has no session ID');
             }
         }
     }
@@ -365,7 +374,7 @@ function setClearTokenFormFlag(e: GoogleAppsScript.Script.EventType.CLOCK) {
 /**
  * Verifies a Cloudflare Turnstile token against the siteverify API
  */
-function verifyTurnstileToken(uuid: string, token: string) {
+function verifyTurnstileToken(sessionId: string, token: string) {
     const turnstileSiteVerifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
     const secret = getSiteSecret();
 
@@ -388,7 +397,7 @@ function verifyTurnstileToken(uuid: string, token: string) {
     let responseContent = JSON.parse(response.getContentText());
 
     if (responseContent['success']) {
-        if (responseContent['cdata'] === uuid) {
+        if (responseContent['cdata'] === sessionId) {
             return true;
         } else {
             throw new Error('Session ID mismatch between form and Cloudflare');
@@ -409,13 +418,13 @@ function verifyTurnstileToken(uuid: string, token: string) {
 }
 
 /**
- * Get the token from the most recent response containing the given UUID in the given form
+ * Get the token from the most recent response containing the given session ID in the given form
  */
-function getLatestToken(form: GoogleAppsScript.Forms.Form, uuid: string) {
+function getLatestToken(form: GoogleAppsScript.Forms.Form, sessionId: string) {
     if (!form) {
         throw new Error('Failed to get token: form is null');
-    } else if (!uuid) {
-        throw new Error('Failed to get token: UUID is null');
+    } else if (!sessionId) {
+        throw new Error('Failed to get token: sessionId is null');
     }
 
     const responses = form.getResponses();
@@ -424,7 +433,7 @@ function getLatestToken(form: GoogleAppsScript.Forms.Form, uuid: string) {
     for (let i = form.getResponses().length - 1; i >= 0; i--) {
         const response = responses[i];
         const itemResponses = response.getItemResponses();
-        let uuidResponse: GoogleAppsScript.Forms.ItemResponse | null = null;
+        let sessionIdResponse: GoogleAppsScript.Forms.ItemResponse | null = null;
         let tokenResponse: GoogleAppsScript.Forms.ItemResponse | null = null;
 
         if (itemResponses.length !== 2) {
@@ -432,14 +441,14 @@ function getLatestToken(form: GoogleAppsScript.Forms.Form, uuid: string) {
         }
 
         for (const itemResponse of itemResponses) {
-            if (itemResponse.getItem().getTitle() === 'UUID') {
-                uuidResponse = itemResponse;
-            } else if (itemResponse.getItem().getTitle() === 'Token') {
+            if (itemResponse.getItem().getTitle() === SESSION_ID_FIELD_NAME) {
+                sessionIdResponse = itemResponse;
+            } else if (itemResponse.getItem().getTitle() === TOKEN_FIELD_NAME) {
                 tokenResponse = itemResponse;
             }
         }
 
-        if (uuidResponse != null && uuidResponse.getResponse() === uuid) {
+        if (sessionIdResponse != null && sessionIdResponse.getResponse() === sessionId) {
             if (tokenResponse != null && tokenResponse.getResponse() != null) {
                 return tokenResponse.getResponse() as string;
             }
