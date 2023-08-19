@@ -62,3 +62,22 @@ but I have not done it.
       8. Optionally check "Enable Notifications" and fill in the fields that appear to set up notifications
 7. Set up the front end using the [front end documentation](https://github.com/ModMalwareInvestigation/turnstile-forms-site)
 8. Test the form by submitting a response
+
+# Request Diagram
+```mermaid
+flowchart
+    A[User completes Turnstile challenge] --> B{Session ID + Token}
+    B --> C{Token Form}
+    C --> D{Token Sheet}
+    A --> E{User completes form}
+    E --> F{Form Response + \nSession ID}
+    F --> G{Form Sheet}
+    D --> H{Turnstile for Forms}
+    G --> H
+    H --> I{Cloudflare siteverify API}
+    I --> J{Success}
+    I --> K{Fail}
+    J --> L{Copy response to \nfiltered sheet}
+    J --> M{Send Discord notification}
+    K --> N{Highlight response red \nin sheet}
+```
