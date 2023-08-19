@@ -1,4 +1,4 @@
-// This file has been modified from the Google Forms add-on template
+// This file has been modified from the Google Forms add-on sample
 // noinspection JSUnusedLocalSymbols
 
 /**

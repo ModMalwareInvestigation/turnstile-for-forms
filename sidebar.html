@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<!-- This file has been modified from the Google Forms add-on template -->
+<!-- This file has been modified from the Google Forms add-on sample -->
 <head>
   <base target="_top">
   <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
@@ -46,14 +46,13 @@
       <label for="mark-as-token-sheet">Mark as Token Sheet</label>
     </div>
     <br>
+    <h1>Notification Settings</h1>
+    <div class="block">
+      <input type="checkbox" id="enable-notifications">
+      <label for="enable-notifications">Enable Notifications</label>
+    </div>
+    <p>Notifications are sent only for turnstile validated responses.</p>
     <div class="block form-group" id="notification-options">
-      <h1>Notification Settings</h1>
-
-      <p>Notifications are sent only for turnstile validated responses.</p>
-      <div class="block">
-        <input type="checkbox" id="enable-notifications">
-        <label for="enable-notifications">Enable Notifications</label>
-      </div>
       <label for="webhook-urls">
         Webhook URLs
         Enter each webhook on a separate line.
