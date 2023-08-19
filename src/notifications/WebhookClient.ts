@@ -81,6 +81,12 @@ function createWebhookPayload(templateName: string, substitution: object): strin
     return evaluatePayloadTemplate(templateName, substitution)
 }
 
+/**
+ * Posts a JSON body to a webhook with the given URL
+ *
+ * @param url url of the webhook to post to
+ * @param payload JSON payload body
+ */
 function postToWebhook(url: string, payload: string) {
     let options: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
         'method' : 'post',

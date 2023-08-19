@@ -1,3 +1,4 @@
+// This file has been modified from the Google Forms add-on template
 // noinspection JSUnusedLocalSymbols
 
 /**
@@ -62,13 +63,13 @@ function showAbout() {
  * @param {Object} settings An Object containing key-value
  *      pairs to store.
  */
-function saveSettings(settings: any) {
+function saveSettings(settings: Settings) {
     const sheetTitle = SpreadsheetApp.getActive().getName();
     const formTitle = sheetTitle.substring(0, sheetTitle.indexOf('(')).trim();
 
     PropertiesService.getDocumentProperties().setProperties({
-        'enableTurnstile': settings.enableTurnstile,
-        'isTokenSheet': settings.isTokenSheet,
+        'enableTurnstile': settings.enableTurnstile ? 'true' : 'false',
+        'isTokenSheet': settings.isTokenSheet ? 'true' : 'false',
         'siteSecret': settings.siteSecret
     });
 
@@ -83,7 +84,7 @@ function saveSettings(settings: any) {
         }
         else {
             if (SpreadsheetApp.getActive().getFormUrl() !== null) {
-                PropertiesService.getDocumentProperties().setProperty('enableNotifications', settings.enableNotifications);
+                PropertiesService.getDocumentProperties().setProperty('enableNotifications', settings.enableNotifications ? 'true' : 'false');
 
                 if (settings.enableNotifications) {
                     if (!Object.values(NOTIFICATION_TEMPLATES).includes(settings.notificationTemplate)) {
@@ -121,6 +122,9 @@ function getSettings() {
     return settings;
 }
 
+/**
+ * Returns the Cloudflare Turnstile site secret
+ */
 function getSiteSecret() {
     try {
         return PropertiesService.getUserProperties().getProperty('siteSecret');
@@ -131,6 +135,7 @@ function getSiteSecret() {
 
 /**
  * Adjust the onFormSubmit triggers for the form and token form based on user's requests.
+ * Enable triggers only if turnstile is enabled
  */
 function adjustFormSubmitTrigger() {
     const sheet = SpreadsheetApp.getActive();
@@ -159,7 +164,7 @@ function adjustFormSubmitTrigger() {
 }
 
 /**
- * If the active form is the token form, set a trigger to clear it once a day.
+ * If the active form is the token form, set a document-specific trigger to clear it once a day.
  */
 function adjustClearTokenFormTrigger(isTokenForm: boolean) {
     const sheet = SpreadsheetApp.getActive();
