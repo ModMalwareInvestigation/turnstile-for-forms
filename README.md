@@ -1,6 +1,6 @@
 # Cloudflare Turnstile for Google Forms
 
-This is a Google Apps Script for validating Google Forms responses using Cloudflare Turnstile. It requires the [accompanying frontend](https://github.com/ModMalwareInvestigation/turnstile-forms-site) to work.
+This is a Google Apps Script for validating Google Forms responses using Cloudflare Turnstile. It requires the [accompanying frontend](https://github.com/ModMalwareInvestigation/turnstile-for-forms-frontend) to work.
 This project was created using the [Google Forms Add-on Sample](https://github.com/googleworkspace/apps-script-samples/tree/main/forms).
 
 # Usage
